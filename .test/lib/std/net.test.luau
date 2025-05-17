@@ -4,15 +4,15 @@ local testing = zune.testing;
 local describe = testing.describe;
 
 describe("UDP", function()
-    require("./net/udp.test");
+    require("@self/net/udp.test");
 end)
 
 describe("TCP", function()
-    require("./net/tcp.test");
+    require("@self/net/tcp.test");
 end)
 
 describe("HTTP", function()
-    require("./net/http.test");
+    require("@self/net/http.test");
 end)
 
 return nil;

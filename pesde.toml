@@ -1,0 +1,14 @@
+name = "scythe_technology/zune_lib"
+version = "0.1.0"
+description = "Luau library built for zune"
+authors = ["Scythe Technology"]
+repository = "https://github.com/Scythe-Technology/zune-lib"
+license = "MIT"
+private = true
+
+[target]
+environment = "luau"
+lib = "std/init.luau"
+
+[indices]
+default = "https://github.com/pesde-pkg/index"

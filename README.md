@@ -7,11 +7,11 @@ Luau libraries built for [Zune](https://github.com/Scythe-Technology/Zune)
 ## Git Submodules
 
 zune-lib can be added as a git submodule:
-`git submodule add https://github.com/Scythe-Technology/zune-lib`
-`git submodule init`
-`git submodule update`
+1. `git submodule add https://github.com/Scythe-Technology/zune-lib`
+2. `git submodule init`
+3. `git submodule update`
 
 ## pesde
 
 zune-lib can be added as a [pesde](https://github.com/pesde-pkg/pesde) git dependency:
-`pesde add gh#scythe-technology/zune-lib#pesde`
+1. `pesde add gh#scythe-technology/zune-lib#pesde`

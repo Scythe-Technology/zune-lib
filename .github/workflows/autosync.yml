@@ -17,13 +17,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rebase
+      - name: Pull Rebase
         run: |
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git fetch origin
           git checkout pesde
-          git rebase origin/master
+          git pull --rebase origin master
 
       - name: Push
         uses: ad-m/github-push-action@master

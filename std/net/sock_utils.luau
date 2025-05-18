@@ -2,7 +2,7 @@
 --!native
 --!optimize 2
 
-local task = zune.task;
+local task = zune.task
 
 return {
     SocketClosedError = {
@@ -12,8 +12,8 @@ return {
         --- usually from recv operations
         --- client closed connection
         ["EOF"] = true,
-    };
+    },
     close = function(socket: NetworkSocket)
-        task.spawn(socket.close, socket);
-    end
-};
+        task.spawn(socket.close, socket)
+    end,
+}

@@ -2,8 +2,8 @@
 --!optimize 2
 
 local function Color256Fn(set: number): (code: number) -> string
-    return function (code: number): string
-        if (code < 0 or code > 255) then
+    return function(code: number): string
+        if code < 0 or code > 255 then
             error("Code must be between 0 to 255", 2)
         end
         return string.format(`\x1b[{set};5;%dm`, code)
@@ -11,14 +11,14 @@ local function Color256Fn(set: number): (code: number) -> string
 end
 
 local function TrueColorFn(set: number): (r: number, g: number, b: number) -> string
-    return function (r: number, g: number, b: number): string
-        if (r < 0 or r > 255) then
+    return function(r: number, g: number, b: number): string
+        if r < 0 or r > 255 then
             error("R must be between 0 to 255", 2)
         end
-        if (g < 0 or g > 255) then
+        if g < 0 or g > 255 then
             error("G must be between 0 to 255", 2)
         end
-        if (b < 0 or b > 255) then
+        if b < 0 or b > 255 then
             error("B must be between 0 to 255", 2)
         end
         return string.format(`\x1b[{set};2;%d;%d;%dm`, r, g, b)
@@ -34,12 +34,12 @@ local CursorMoveTemplates = {
     left = "\x1b[%dD",
     nextline = "\x1b[%dE",
     prevline = "\x1b[%dF",
-    gotocol = "\x1b[%dG"
+    gotocol = "\x1b[%dG",
 }
 
 local function cursorMove(action: string, ...): string
     local template = CursorMoveTemplates[action]
-    if (not template) then
+    if not template then
         return error("UnknownKind", 2)
     end
     return string.format(template, ...)
@@ -52,10 +52,12 @@ local EraseTemplates = {
     savedLines = "\x1b[3J",
     endOfLine = "\x1b[0K",
     startOfLine = "\x1b[1K",
-    entireLine = "\x1b[2K"
-};
+    entireLine = "\x1b[2K",
+}
 
-local function erase(erase: "endOf" | "startOf" | "entire" | "savedLines" | "endOfLine" | "startOfLine" | "entireLine"): string
+local function erase(
+    erase: "endOf" | "startOf" | "entire" | "savedLines" | "endOfLine" | "startOfLine" | "entireLine"
+): string
     return EraseTemplates[erase] or error("UnknownKind", 2)
 end
 
@@ -99,7 +101,7 @@ return {
         color256 = Color256Fn(48),
         trueColor = TrueColorFn(48),
     },
-    
+
     dim = "\x1b[2m",
     bold = "\x1b[1m",
     italic = "\x1b[3m",
@@ -121,12 +123,9 @@ return {
     reset_color = "\x1b[39m",
     reset_bgcolor = "\x1b[49m",
 
-    cursorMove = (cursorMove :: any) :: ((action: "home") -> string)
-        & ((action: "goto", line: number, column: number) -> string)
-        & ((action: "up" | "down" | "right" | "left", amount: number) -> string)
-        & ((action: "nextline", linesDown: number) -> string)
-        & ((action: "prevline", linesUp: number) -> string)
-        & ((action: "gotocol", column: number) -> string),
-    
+    cursorMove = (cursorMove :: any) :: ((action: "home") -> string) & ((action: "goto", line: number, column: number) -> string) & (
+            (action: "up" | "down" | "right" | "left", amount: number) -> string
+        ) & ((action: "nextline", linesDown: number) -> string) & ((action: "prevline", linesUp: number) -> string) & ((action: "gotocol", column: number) -> string),
+
     erase = erase,
 }

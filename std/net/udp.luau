@@ -2,10 +2,10 @@
 --!native
 --!optimize 2
 
-local net = zune.net;
-local task = zune.task;
+local net = zune.net
+local task = zune.task
 
-local SocketUtils = require("./sock_utils");
+local SocketUtils = require("./sock_utils")
 
 export type UDPSocket = {
     socket: NetworkSocket,
@@ -22,7 +22,7 @@ export type UDPSocket = {
     stop: (self: UDPSocket) -> (),
 }
 
-type UDPDataCallback = ((socket: UDPSocket, buffer: buffer, port: number, address: string) -> ());
+type UDPDataCallback = (socket: UDPSocket, buffer: buffer, port: number, address: string) -> ()
 
 export type UDPSocketOptions = {
     --- The port to bind to.
@@ -39,82 +39,73 @@ export type UDPSocketOptions = {
     data: UDPDataCallback?,
 }
 
-local udp = {};
+local udp = {}
 
-local function sendSocketAsync(
-    self: UDPSocket,
-    message: buffer | string,
-    port: number,
-    address: string
-): number
-    local ok, amount = pcall(self.socket.sendMsg, self.socket, port, address, message);
-    if (not ok) then
-        local err = amount::any;
-        self:stop();
-        if (SocketUtils.SocketClosedError[err]) then
-            return 0;
+local function sendSocketAsync(self: UDPSocket, message: buffer | string, port: number, address: string): number
+    local ok, amount = pcall(self.socket.sendMsg, self.socket, port, address, message)
+    if not ok then
+        local err = amount :: any
+        self:stop()
+        if SocketUtils.SocketClosedError[err] then
+            return 0
         end
-        print("Error(Unhandled): ", err);
+        print("Error(Unhandled): ", err)
     end
-    return amount;
+    return amount
 end
 
 local function stopSocket(self: UDPSocket): ()
-    if (self.stopped) then
-        return;
+    if self.stopped then
+        return
     end
-    self.stopped = true;
-    SocketUtils.close(self.socket);
+    self.stopped = true
+    SocketUtils.close(self.socket)
 end
 
-local function startSocket(
-    self: UDPSocket,
-    maxBodySize: number,
-    callback_data: UDPDataCallback?
-): ()
-    local socket = self.socket;
+local function startSocket(self: UDPSocket, maxBodySize: number, callback_data: UDPDataCallback?): ()
+    local socket = self.socket
     while not self.stopped do
-        local ok, address, msg = pcall(socket.recvMsg, socket, maxBodySize);
-        if (not ok) then
-            local err = address::any;
-            if (SocketUtils.SocketClosedError[err]) then
-                break; -- closed
+        local ok, address, msg = pcall(socket.recvMsg, socket, maxBodySize)
+        if not ok then
+            local err = address :: any
+            if SocketUtils.SocketClosedError[err] then
+                break -- closed
             end
-            print("Error(Unhandled): ", address);
-            break;
+            print("Error(Unhandled): ", address)
+            break
         end
-        if (callback_data) then
-            task.spawn(callback_data, self, msg, address.port, address.address);
+        if callback_data then
+            task.spawn(callback_data, self, msg, address.port, address.address)
         end
     end
-    stopSocket(self);
+    stopSocket(self)
 end
 
 function udp.createAsync(opts: UDPSocketOptions): UDPSocket
-    assert(type(opts) == "table", "Expected opts to be a table");
+    assert(type(opts) == "table", "Expected opts to be a table")
 
-    local address = opts.address or "127.0.0.1";
-    local port = opts.port or 0;
-    local maxBodySize = opts.maxBodySize or 65_507;
+    local address = opts.address or "127.0.0.1"
+    local port = opts.port or 0
+    local maxBodySize = opts.maxBodySize or 65_507
 
-    local callback_data = opts.data;
+    local callback_data = opts.data
 
-    assert(type(address) == "string", "Expected address to be a string");
-    assert(type(port) == "number", "Expected port to be a number");
-    assert(type(maxBodySize) == "number", "Expected maxBodySize to be a number");
-    assert(maxBodySize > 0, "Expected maxBodySize to be greater than 0");
-    
-    assert(type(callback_data) == "function" or callback_data == nil, "Expected data to be a function");
+    assert(type(address) == "string", "Expected address to be a string")
+    assert(type(port) == "number", "Expected port to be a number")
+    assert(type(maxBodySize) == "number", "Expected maxBodySize to be a number")
+    assert(maxBodySize > 0, "Expected maxBodySize to be greater than 0")
+
+    assert(type(callback_data) == "function" or callback_data == nil, "Expected data to be a function")
 
     local socket = net.createSocket(
         net.ADDRF.INET,
         bit32.bor(net.SOCKF.DGRAM, net.SOCKF.NONBLOCK, net.SOCKF.CLOEXEC),
         net.IPPROTO.UDP
-    );
+    )
 
-    socket:bindIp(address, port);
+    socket:bindIp(address, port)
 
-    local name = socket:getName();
+    local name = socket:getName()
 
     local self: UDPSocket = {
         socket = socket,
@@ -123,16 +114,11 @@ function udp.createAsync(opts: UDPSocketOptions): UDPSocket
         stopped = false,
         send = sendSocketAsync,
         stop = stopSocket,
-    };
+    }
 
-    task.spawn(
-        startSocket,
-        self,
-        maxBodySize,
-        callback_data
-    );
+    task.spawn(startSocket, self, maxBodySize, callback_data)
 
-    return self;
+    return self
 end
 
-return udp;
+return udp

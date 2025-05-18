@@ -2,23 +2,23 @@
 --!native
 --!optimize 2
 
-local net = zune.net;
-local task = zune.task;
+local net = zune.net
+local task = zune.task
 
-local Request = require("./request");
-local Response = require("./response");
-local Encoding = require("./encoding");
-local SocketUtils = require("../sock_utils");
+local Encoding = require("./encoding")
+local Request = require("./request")
+local Response = require("./response")
+local SocketUtils = require("../sock_utils")
 
-local LinkedList = require("../../linked_list");
-type LinkedList<T = any> = LinkedList.LinkedList<T>;
+local LinkedList = require("../../linked_list")
+type LinkedList<T = any> = LinkedList.LinkedList<T>
 
-export type Response = Response.Response;
+export type Response = Response.Response
 
 export type Request = {
     method: string,
     path: string,
-    headers: {[string]: string},
+    headers: { [string]: string },
     body: string?,
 }
 
@@ -51,7 +51,7 @@ export type ServeOptions = {
         timeout: number,
     }?,
     --- The function to handle requests.
-    request: (request: Request) ->  string | Response,
+    request: (request: Request) -> string | Response,
     --- Functions to handle websockets.
     -- websocket: ServerWebSocketHandlers?,
 }
@@ -66,54 +66,54 @@ type Server = {
 }
 
 local function sendSocketAsync(socket: NetworkSocket, message: string | buffer): ()
-    local length = if (type(message) == "buffer") then buffer.len(message) else #message;
-    local written = 0;
-    while (written < length) do
-        local ok, amount = pcall(socket.send, socket, message, written);
-        if (not ok) then
-            local err = amount::any;
-            SocketUtils.close(socket);
-            if (SocketUtils.SocketClosedError[err] or err == "BrokenPipe") then
-                break; -- closed/disconnected
+    local length = if type(message) == "buffer" then buffer.len(message) else #message
+    local written = 0
+    while written < length do
+        local ok, amount = pcall(socket.send, socket, message, written)
+        if not ok then
+            local err = amount :: any
+            SocketUtils.close(socket)
+            if SocketUtils.SocketClosedError[err] or err == "BrokenPipe" then
+                break -- closed/disconnected
             end
-            print("Error(Unhandled): ", err);
-            break;
+            print("Error(Unhandled): ", err)
+            break
         end
-        written += amount;
+        written += amount
     end
 end
 
-local sendQueue = {};
-local waitEvents = {};
+local sendQueue = {}
+local waitEvents = {}
 local function sendMessage(socket: NetworkSocket, message: string | buffer): ()
-    if (not socket:isOpen()) then
-        return;
+    if not socket:isOpen() then
+        return
     end
-    local queue = sendQueue[socket] or {};
-    table.insert(queue, message);
-    if (not sendQueue[socket]) then
+    local queue = sendQueue[socket] or {}
+    table.insert(queue, message)
+    if not sendQueue[socket] then
         -- process the queue
-        sendQueue[socket] = queue;
+        sendQueue[socket] = queue
         task.spawn(function(socket: NetworkSocket)
-            while (#queue > 0 and socket:isOpen()) do
-                local message = table.remove(queue, 1);
-                if (message) then
-                    sendSocketAsync(socket, message);
+            while #queue > 0 and socket:isOpen() do
+                local message = table.remove(queue, 1)
+                if message then
+                    sendSocketAsync(socket, message)
                 end
             end
-            sendQueue[socket] = nil;
-            if (waitEvents[socket]) then
-                task.spawn(waitEvents[socket]);
+            sendQueue[socket] = nil
+            if waitEvents[socket] then
+                task.spawn(waitEvents[socket])
             end
-        end, socket);
+        end, socket)
     end
 end
 
 local function waitForMessages(socket: NetworkSocket)
-    local queue = sendQueue[socket];
-    if (queue) then
-        waitEvents[socket] = coroutine.running();
-        coroutine.yield();
+    local queue = sendQueue[socket]
+    if queue then
+        waitEvents[socket] = coroutine.running()
+        coroutine.yield()
     end
 end
 
@@ -127,17 +127,17 @@ local function closeClientTimedoutAsync(socket: NetworkSocket)
                 ["Connection"] = "close",
             },
         })
-    );
-    waitForMessages(socket);
-    socket:close();
+    )
+    waitForMessages(socket)
+    socket:close()
 end
 
 local function stopServer(server: Server): ()
-    if (server.stopped) then
-        return;
+    if server.stopped then
+        return
     end
-    server.stopped = true;
-    SocketUtils.close(server.socket);
+    server.stopped = true
+    SocketUtils.close(server.socket)
 end
 
 local function listenHttpClient(
@@ -145,47 +145,47 @@ local function listenHttpClient(
     socket: NetworkSocket,
     maxBodySize: number,
     clientTimeout: number,
-    keepAlive: {enabled: boolean?, timeout: number},
+    keepAlive: { enabled: boolean?, timeout: number },
     callback_request: (request: Request) -> string | Response,
     connection: LinkedList.Node<NetworkSocket>
 ): ()
-    local parser: Request.Parser = Request.newParser();
-    local requests = 0;
-    local request_header_read = 0;
+    local parser: Request.Parser = Request.newParser()
+    local requests = 0
+    local request_header_read = 0
     while socket:isOpen() do
-        local open_timeout: thread;
-        if (requests > 0) then
-            if (not keepAlive.enabled) then
-                break; -- end request
+        local open_timeout: thread
+        if requests > 0 then
+            if not keepAlive.enabled then
+                break -- end request
             end
-            if (keepAlive.timeout > 0) then
-                open_timeout = task.delay(keepAlive.timeout, closeClientTimedoutAsync, socket);
+            if keepAlive.timeout > 0 then
+                open_timeout = task.delay(keepAlive.timeout, closeClientTimedoutAsync, socket)
             else
-                open_timeout = task.delay(clientTimeout, closeClientTimedoutAsync, socket);
+                open_timeout = task.delay(clientTimeout, closeClientTimedoutAsync, socket)
             end
         else
-            open_timeout = task.delay(clientTimeout, closeClientTimedoutAsync, socket);
+            open_timeout = task.delay(clientTimeout, closeClientTimedoutAsync, socket)
         end
-        if (request_header_read >= 8192) then
-            break; -- too much client data
+        if request_header_read >= 8192 then
+            break -- too much client data
         end
-        local stream_ok, data = pcall(socket.recv, socket, 8192);
-        if (open_timeout) then
-            task.cancel(open_timeout);
+        local stream_ok, data = pcall(socket.recv, socket, 8192)
+        if open_timeout then
+            task.cancel(open_timeout)
         end
-        if (not stream_ok) then
-            local err = data::any;
-            if (SocketUtils.SocketClosedError[err]) then
-                break; -- closed/disconnected
+        if not stream_ok then
+            local err = data :: any
+            if SocketUtils.SocketClosedError[err] then
+                break -- closed/disconnected
             end
-            print("Error(Unhandled): ", err);
-            break;
+            print("Error(Unhandled): ", err)
+            break
         end
-        local data_len = buffer.len(data);
-        if (data_len == 0) then
-            break; -- closed/disconnected
+        local data_len = buffer.len(data)
+        if data_len == 0 then
+            break -- closed/disconnected
         end
-        if (true) then
+        if true then
             sendMessage(
                 socket,
                 Response.from({
@@ -193,113 +193,117 @@ local function listenHttpClient(
                     statusReason = "OK",
                     body = "Hello World",
                 })
-            );
-            continue;
+            )
+            continue
         end
-        request_header_read += data_len;
-        local buf = Request.withLeftover(parser, data);
-        parser.size = buffer.len(buf);
-        parser.pos = 0;
-        if (not parser.method) then
-            local ok, err: any = pcall(Request.parseMethod, parser, buf);
-            if (not ok) then
-                if (err == "TooSmall") then
-                    continue;
-                elseif (err == "InvalidMethod") then
-                    break; -- end request
+        request_header_read += data_len
+        local buf = Request.withLeftover(parser, data)
+        parser.size = buffer.len(buf)
+        parser.pos = 0
+        if not parser.method then
+            local ok, err: any = pcall(Request.parseMethod, parser, buf)
+            if not ok then
+                if err == "TooSmall" then
+                    continue
+                elseif err == "InvalidMethod" then
+                    break -- end request
                 else
-                    error("unreachable");
+                    error("unreachable")
                 end
             end
         end
-        if (not parser.uri) then
-            local ok, err: any = pcall(Request.parseUri, parser, buf, 256);
-            if (not ok) then
-                if (err == "TooSmall") then
-                    continue;
-                elseif (err == "InvalidUri") then
-                    break; -- end request
-                elseif (err == "UriTooLarge") then
+        if not parser.uri then
+            local ok, err: any = pcall(Request.parseUri, parser, buf, 256)
+            if not ok then
+                if err == "TooSmall" then
+                    continue
+                elseif err == "InvalidUri" then
+                    break -- end request
+                elseif err == "UriTooLarge" then
                     sendMessage(
                         socket,
                         Response.from({
                             statusCode = 414,
                             statusReason = "URI Too Large",
                         })
-                    );
-                    break; -- end request
+                    )
+                    break -- end request
                 else
-                    error("unreachable");
+                    error("unreachable")
                 end
             end
         end
-        if (not parser.protocol) then
-            local ok, err: any = pcall(Request.parseProtocol, parser, buf);
-            if (not ok) then
-                if (err == "TooSmall") then
-                    continue;
-                elseif (err == "InvalidProtocol") then
-                    break; -- end request
+        if not parser.protocol then
+            local ok, err: any = pcall(Request.parseProtocol, parser, buf)
+            if not ok then
+                if err == "TooSmall" then
+                    continue
+                elseif err == "InvalidProtocol" then
+                    break -- end request
                 else
-                    error("unreachable");
+                    error("unreachable")
                 end
             end
         end
-        if (not parser.headers or parser.state.headers_incomplete) then
-            local ok, err: any = pcall(Request.parseHeaders, parser, buf, 100);
-            if (not ok) then
-                if (err == "TooSmall") then
-                    continue;
-                elseif (err == "InvalidHeader") then
-                    break; -- end request
-                elseif (err == "TooManyHeaders" or err == "HeaderTooLarge") then
+        if not parser.headers or parser.state.headers_incomplete then
+            local ok, err: any = pcall(Request.parseHeaders, parser, buf, 100)
+            if not ok then
+                if err == "TooSmall" then
+                    continue
+                elseif err == "InvalidHeader" then
+                    break -- end request
+                elseif err == "TooManyHeaders" or err == "HeaderTooLarge" then
                     sendMessage(
                         socket,
                         Response.from({
                             statusCode = 431,
                             statusReason = "Request Header Fields Too Large",
                         })
-                    );
-                    break; -- end request
+                    )
+                    break -- end request
                 else
-                    error("unreachable");
+                    error("unreachable")
                 end
             end
         end
-        if (not parser.body and parser.method ~= "GET") then
-            local ok, err: any = pcall(Request.parseBody, parser, buf, maxBodySize);
-            request_header_read = -maxBodySize;
-            if (not ok) then
-                if (err == "TooSmall") then
-                    continue;
-                elseif (err == "NotImplemented" or err == "InvalidContentLength") then
-                    break; -- end request
-                elseif (err == "TooLarge") then
+        if not parser.body and parser.method ~= "GET" then
+            local ok, err: any = pcall(Request.parseBody, parser, buf, maxBodySize)
+            request_header_read = -maxBodySize
+            if not ok then
+                if err == "TooSmall" then
+                    continue
+                elseif err == "NotImplemented" or err == "InvalidContentLength" then
+                    break -- end request
+                elseif err == "TooLarge" then
                     sendMessage(
                         socket,
                         Response.from({
                             statusCode = 413,
                             statusReason = "Content Too Large",
                         })
-                    );
-                    break; -- end request
+                    )
+                    break -- end request
                 else
-                    error("unreachable");
+                    error("unreachable")
                 end
             end
         end
-        requests += 1;
-        if (callback_request) then
-            local ok, response = xpcall(callback_request, function(err)
-                print(`error: {debug.traceback(err, 2)}`);
-            end, {
-                body = parser.body,
-                method = parser.method,
-                path = Encoding.url.decode(parser.uri :: any),
-                headers = parser.headers,
-            } :: any);
-            if (not ok) then
-                local msg = "An error occurred on the server";
+        requests += 1
+        if callback_request then
+            local ok, response = xpcall(
+                callback_request,
+                function(err)
+                    print(`error: {debug.traceback(err, 2)}`)
+                end,
+                {
+                    body = parser.body,
+                    method = parser.method,
+                    path = Encoding.url.decode(parser.uri :: any),
+                    headers = parser.headers,
+                } :: any
+            )
+            if not ok then
+                local msg = "An error occurred on the server"
                 sendMessage(
                     socket,
                     Response.from({
@@ -310,15 +314,14 @@ local function listenHttpClient(
                         },
                         body = msg,
                     })
-                );
-                break;
+                )
+                break
             end
             sendMessage(
                 socket,
-                if (type(response) == "table") then
-                    Response.from(response)
-                else
-                    Response.from({
+                if (type(response) == "table")
+                    then Response.from(response)
+                    else Response.from({
                         statusCode = 200,
                         statusReason = "OK",
                         headers = {
@@ -326,19 +329,19 @@ local function listenHttpClient(
                         },
                         body = response,
                     })
-            );
+            )
         end
-        if (not Request.canKeepAlive(parser)) then
-            break;
+        if not Request.canKeepAlive(parser) then
+            break
         end
     end
-    waitForMessages(socket);
-    SocketUtils.close(socket);
-    server.connections:remove(connection);
-    if (server.waiting) then
-        server.waiting = false;
+    waitForMessages(socket)
+    SocketUtils.close(socket)
+    server.connections:remove(connection)
+    if server.waiting then
+        server.waiting = false
         assert(server.thread)
-        task.spawn(server.thread);
+        task.spawn(server.thread)
     end
 end
 
@@ -347,32 +350,32 @@ local function startServer(
     maxBodySize: number,
     maxConnections: number,
     clientTimeout: number,
-    keepAlive: {enabled: boolean?, timeout: number},
+    keepAlive: { enabled: boolean?, timeout: number },
     callback_request: (request: Request) -> string | Response
 ): ()
-    local socket = server.socket;
-    server.thread = coroutine.running();
+    local socket = server.socket
+    server.thread = coroutine.running()
     while not server.stopped do
-        if (server.connections.size >= maxConnections) then
-            server.waiting = true;
-            coroutine.yield();
-            continue;
+        if server.connections.size >= maxConnections then
+            server.waiting = true
+            coroutine.yield()
+            continue
         end
-        local ok, client_socket = pcall(socket.accept, socket);
-        if (not ok) then
-            local err = client_socket::any;
-            server:stop();
-            if (SocketUtils.SocketClosedError[err]) then
-                break; -- closed/disconnected
+        local ok, client_socket = pcall(socket.accept, socket)
+        if not ok then
+            local err = client_socket :: any
+            server:stop()
+            if SocketUtils.SocketClosedError[err] then
+                break -- closed/disconnected
             end
-            print("Error(Unhandled): ", err);
-            break;
+            print("Error(Unhandled): ", err)
+            break
         end
         local connection: LinkedList.Node<NetworkSocket> = {
-            value = client_socket
-        };
-        server.connections:append(connection);
-        
+            value = client_socket,
+        }
+        server.connections:append(connection)
+
         task.spawn(
             listenHttpClient,
             server,
@@ -386,55 +389,55 @@ local function startServer(
     end
 end
 
-local server = {};
+local server = {}
 
 function server.serve(opts: ServeOptions): Server
-    assert(type(opts) == "table", "Expected opts to be a table");
+    assert(type(opts) == "table", "Expected opts to be a table")
 
-    local port = opts.port or 80;
-    local address = opts.address or "127.0.0.1";
-    local maxBacklog = opts.maxBacklog or 512;
-    local maxBodySize = opts.maxBodySize or 4096;
-    local reuseAddress = opts.reuseAddress or false;
-    local clientTimeout = opts.clientTimeout or 60;
-    local maxConnections = opts.maxConnections or 1024;
+    local port = opts.port or 80
+    local address = opts.address or "127.0.0.1"
+    local maxBacklog = opts.maxBacklog or 512
+    local maxBodySize = opts.maxBodySize or 4096
+    local reuseAddress = opts.reuseAddress or false
+    local clientTimeout = opts.clientTimeout or 60
+    local maxConnections = opts.maxConnections or 1024
     -- local websocket_handlers = opts.websocket or {};
-    local keepAlive = opts.keepAlive or { enabled = true, timeout = 0 };
+    local keepAlive = opts.keepAlive or { enabled = true, timeout = 0 }
 
-    local callback_request = opts.request;
+    local callback_request = opts.request
 
-    assert(type(port) == "number", "Expected port to be a number");
-    assert(type(address) == "string", "Expected address to be a string");
-    assert(type(maxBacklog) == "number", "Expected maxBacklog to be a number");
-    assert(type(maxBodySize) == "number", "Expected maxBodySize to be a number");
-    assert(type(reuseAddress) == "boolean", "Expected reuseAddress to be a boolean");
-    assert(type(clientTimeout) == "number", "Expected clientTimeout to be a number");
-    assert(type(maxConnections) == "number", "Expected maxConnections to be a number");
+    assert(type(port) == "number", "Expected port to be a number")
+    assert(type(address) == "string", "Expected address to be a string")
+    assert(type(maxBacklog) == "number", "Expected maxBacklog to be a number")
+    assert(type(maxBodySize) == "number", "Expected maxBodySize to be a number")
+    assert(type(reuseAddress) == "boolean", "Expected reuseAddress to be a boolean")
+    assert(type(clientTimeout) == "number", "Expected clientTimeout to be a number")
+    assert(type(maxConnections) == "number", "Expected maxConnections to be a number")
     -- assert(type(websocket_handlers) == "table", "Expected websocket to be a table");
-    assert(type(keepAlive) == "table", "Expected keepAlive to be a table");
+    assert(type(keepAlive) == "table", "Expected keepAlive to be a table")
 
-    local keepAliveTimeout = keepAlive.timeout;
-    local keepAliveEnabled = keepAlive.enabled or true;
-    assert(type(keepAliveTimeout) == "number", "Expected keepAlive.timeout to be a number");
-    assert(type(keepAliveEnabled) == "boolean", "Expected keepAlive.enabled to be a boolean");
+    local keepAliveTimeout = keepAlive.timeout
+    local keepAliveEnabled = keepAlive.enabled or true
+    assert(type(keepAliveTimeout) == "number", "Expected keepAlive.timeout to be a number")
+    assert(type(keepAliveEnabled) == "boolean", "Expected keepAlive.enabled to be a boolean")
 
-    assert(type(callback_request) == "function", "Expected request to be a function");
+    assert(type(callback_request) == "function", "Expected request to be a function")
 
     local socket = net.createSocket(
         net.ADDRF.INET,
         bit32.bor(net.SOCKF.STREAM, net.SOCKF.CLOEXEC, net.SOCKF.NONBLOCK),
         net.IPPROTO.TCP
-    );
+    )
 
-    if (reuseAddress) then
-        socket:setOption(net.SOCKOPTLV.SOCKET, net.SOCKOPT.REUSEADDR, true);
-        if (net.SOCKOPT.REUSEPORT) then
-            socket:setOption(net.SOCKOPTLV.SOCKET, net.SOCKOPT.REUSEPORT, true);
+    if reuseAddress then
+        socket:setOption(net.SOCKOPTLV.SOCKET, net.SOCKOPT.REUSEADDR, true)
+        if net.SOCKOPT.REUSEPORT then
+            socket:setOption(net.SOCKOPTLV.SOCKET, net.SOCKOPT.REUSEPORT, true)
         end
     end
 
-    socket:bindIp(address, port);
-    socket:listen(maxBacklog);
+    socket:bindIp(address, port)
+    socket:listen(maxBacklog)
 
     local self: Server = {
         waiting = false,
@@ -442,22 +445,14 @@ function server.serve(opts: ServeOptions): Server
         stopped = false,
         connections = LinkedList.new(),
         stop = stopServer,
-    };
+    }
 
-    task.spawn(
-        startServer,
-        self,
-        maxBodySize,
-        maxConnections,
-        clientTimeout,
-        {
-            enabled = keepAliveEnabled,
-            timeout = keepAliveTimeout,
-        },
-        callback_request
-    );
+    task.spawn(startServer, self, maxBodySize, maxConnections, clientTimeout, {
+        enabled = keepAliveEnabled,
+        timeout = keepAliveTimeout,
+    }, callback_request)
 
-    return self;
+    return self
 end
 
-return server;
+return server
